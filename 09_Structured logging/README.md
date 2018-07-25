@@ -128,109 +128,66 @@ On ln27:
 Log.debug(`published 'order_placed' event into Kinesis`)
 ```
 
-CONTINUE FROM HERE...
+5. Modify `functions/notify-restaurant.js` and replace `console.log` with use of the logger.
 
-5. Modify `functions/notify-restaurant.js` and replace `console.log` with use of the logger
+First, require the `log` module, at the top of the file.
 
 ```javascript
-const { getRecords } = require('../lib/kinesis')
-const notify = require('../lib/notify')
-const retry = require('../lib/retry')
 const Log = require('../lib/log')
 ```
 
-```javascript
-try {
-  await notify.restaurantOfOrder(order)
-} catch (err) {
-  Log.warn(`failed to notify restaurant of order [${order.orderId}], queuing for retry...`)
-  await retry.restaurantNotification(order)
-}
-```
+Replace the 2 instances of `console.log` with `Log.debug`.
 
-6. Modify `lib/notify.js` and replace `console.log` with use of the logger
+On ln21:
 
 ```javascript
-const _ = require('lodash')
-const AWS = require('aws-sdk')
-const sns = new AWS.SNS()
-const kinesis = new AWS.Kinesis()
-const chance  = require('chance').Chance()
-const Log = require('./log')
-```
-
-```javascript
-await sns.publish(snsReq).promise()
 Log.debug(`notified restaurant [${order.restaurantName}] of order [${order.orderId}]`)
 ```
 
-```javascript
-await kinesis.putRecord(kinesisReq).promise()
-  Log.debug(`published 'restaurant_notified' event to Kinesis`)
-```
-
-7. Modify `lib/retry.js` and replace `console.log` with use of the logger
+On ln32:
 
 ```javascript
-const AWS = require('aws-sdk')
-const sns = new AWS.SNS()
-const Log = require('../lib/log')
+Log.debug(`published 'restaurant_notified' event to Kinesis`)
 ```
 
-```javascript
-await sns.publish(snsReq).promise()
-Log.info(`order [${order.orderId}]: queued restaurant notification for retry`)
-```
+6. Run the integration tests
 
-8. Run the integration tests
-
-`STAGE=dev REGION=us-east-1 npm run test`
+`npm run test`
 
 and see that the functions are now logging in JSON
 
 ```
   When we invoke the GET / endpoint
 SSM params loaded
-AWS credential loaded
 invoking via handler function get-index
 {"level":"INFO","message":"loading index.html..."}
 {"level":"INFO","message":"loaded"}
-    ✓ Should return the index page with 8 restaurants (1642ms)
+    ✓ Should return the index page with 8 restaurants (1988ms)
 
   When we invoke the GET /restaurants endpoint
 invoking via handler function get-restaurants
-    ✓ Should return an array of 8 restaurants (1321ms)
+    ✓ Should return an array of 8 restaurants (226ms)
 
   When we invoke the notify-restaurant function
 invoking via handler function notify-restaurant
-{"level":"DEBUG","message":"notified restaurant [Fangtasia] of order [4ec5038c-5181-50ba-a706-2c6a57757b69]"}
+{"level":"DEBUG","message":"notified restaurant [Fangtasia] of order [e0018c8c-e7fe-5930-a298-793dbf3df179]"}
 {"level":"DEBUG","message":"published 'restaurant_notified' event to Kinesis"}
     ✓ Should publish message to SNS
     ✓ Should publish event to Kinesis
 
-  Given an authenticated user
-[test-Ina-Louis-N0LIpIfa] - user is created
-[test-Ina-Louis-N0LIpIfa] - initialised auth flow
-[test-Ina-Louis-N0LIpIfa] - responded to auth challenge
-    When we invoke the POST /orders endpoint
+  When we invoke the POST /orders endpoint
 invoking via handler function place-order
-{"level":"DEBUG","message":"placing order ID [aeeac0e1-7d72-5144-b8c5-ab9eef70c657] to [Fangtasia] for user [test-Ina-Louis-N0LIpIfa@test.com]"}
+{"level":"DEBUG","message":"placing order ID [e229e607-e2bf-5a54-b065-ca27be2b7bbb] to [Fangtasia]"}
 {"level":"DEBUG","message":"published 'order_placed' event into Kinesis"}
-      ✓ Should return 200
-      ✓ Should publish a message to Kinesis stream
-[test-Ina-Louis-N0LIpIfa] - user deleted
+    ✓ Should return 200
+    ✓ Should publish a message to Kinesis stream
 
-  Given an authenticated user
-[test-Eugene-Forconi-qRvWv)m]] - user is created
-[test-Eugene-Forconi-qRvWv)m]] - initialised auth flow
-[test-Eugene-Forconi-qRvWv)m]] - responded to auth challenge
-    When we invoke the POST /restaurants/search endpoint with theme 'cartoon'
+  When we invoke the POST /restaurants/search endpoint with theme 'cartoon'
 invoking via handler function search-restaurants
-      ✓ Should return an array of 4 restaurants (248ms)
-[test-Eugene-Forconi-qRvWv)m]] - user deleted
+    ✓ Should return an array of 4 restaurants (141ms)
 
 
-  7 passing (8s)
+  7 passing (3s)
 ```
 
 </p></details>
@@ -238,27 +195,43 @@ invoking via handler function search-restaurants
 <details>
 <summary><b>Disable debug logging in production</b></summary><p>
 
-1. Modify `serverless.yml` to add a `custom` section
+1. Open `serverless.yml`. Add a `custom` section, this should be at the same level as `provider` and `plugins`.
 
 ```yml
 custom:
+  stage: ${opt:stage, self:provider.stage}
   logLevel:
     prod: INFO
     default: DEBUG
+```
 
+`custom.stage` uses the `${xxx, yyy}` to provide fall backs. In this case, we're saying "if a `stage` variable is provided via the CLI, e.g. `sls deploy --stage staging`, then resolve to `staging`; otherwise, fallback to `provider.stage` in this file (hence the `self` reference"
+
+2. Still in the `serverless.yml`, under `provider` section, add the following
+
+```yml
+environment:
+  log_level: ${self:custom.logLevel.${self:custom.stage}, self:custom.logLevel.default}
+```
+
+After this change, the `provider` section should look like this:
+
+```yml
 provider:
   name: aws
   runtime: nodejs8.10
+  stage: dev
+  region: eu-west-1
   environment:
-    log_level: ${self:custom.logLevel.${opt:stage}, self:custom.logLevel.default}
+    log_level: ${self:custom.logLevel.${self:custom.stage}, self:custom.logLevel.default}
 ```
 
-This applies the `log_level` environment variable (used to what level the logger should log at) to all the functions in the project (since it's specified under `provider`).
+This applies the `log_level` environment variable (used to decide what level the logger should log at) to all the functions in the project (since it's specified under `provider`).
 
-It references the `custom.logLevel` section (with `self:`), and also references the `stage` deployment option. So when the deployment stage is `prod`, it resolves to `self:custom.logLevel.prod` and `log_level` would be set to `INFO`.
+It references the `custom.logLevel` object (with the `self:` syntax), and also references the `custom.stage` value (remember, this can be overriden by CLI options). So when the deployment stage is `prod`, it resolves to `self:custom.logLevel.prod` and `log_level` would be set to `INFO`.
 
-The second argument, `self:custom.logLevel.default` is the fallback if the first path is not found. If the deployment stage is `dev`, it'll see that `self:custom.logLevel.dev` doesn't exist, and therefore use the fallback `self:custom.logLevel.default` and set `log_level` to `DEBUG` in that case.
+The second argument, `self:custom.logLevel.default` provides the fallback if the first path is not found. If the deployment stage is `dev`, it'll see that `self:custom.logLevel.dev` doesn't exist, and therefore use the fallback `self:custom.logLevel.default` and set `log_level` to `DEBUG` in that case.
 
-This is a nice trip to specify a stage-specific override, but then fall back to some default value otherwise.
+This is a nice trick to specify a stage-specific override, but then fall back to some default value otherwise.
 
 </p></details>
