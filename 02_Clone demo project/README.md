@@ -3,7 +3,9 @@
 <details>
 <summary><b>Clone and deploy the demo project</b></summary><p>
 
-1. Clone this [repo](https://github.com/theburningmonk/production-ready-serverless-workshop-dvla-demo)
+1. Fork this [repo](https://github.com/theburningmonk/production-ready-serverless-workshop-dvla-demo)
+
+and clone it on your laptop
 
 2. Open the repo in your IDE
 
