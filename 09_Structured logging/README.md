@@ -152,7 +152,7 @@ Log.debug(`published 'restaurant_notified' event to Kinesis`)
 
 6. Run the integration tests
 
-`npm run test`
+`STAGE=dev REGION=eu-west-1 npm run test`
 
 and see that the functions are now logging in JSON
 
