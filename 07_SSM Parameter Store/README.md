@@ -23,7 +23,7 @@
 
 7. Repeat step 3-5 to create another `/xxx/dev/restaurant_topic_name` parameter with the value `restaurants-dev-` followed by your name, e.g. `restaurants-dev-yancui`
 
-8. Repeat step 3-5 to create another `/xxx/dev/url` parameter with the root URL for your deployed API without the ending `/`, e.g. `https://exun14zd2h.execute-api.us-east-1.amazonaws.com/dev`
+8. Repeat step 3-5 to create another `/xxx/dev/url` parameter with the root URL for your deployed API without the ending `/`, e.g. `https://exun14zd2h.execute-api.eu-west-1.amazonaws.com/dev`
 
 </p></details>
 
