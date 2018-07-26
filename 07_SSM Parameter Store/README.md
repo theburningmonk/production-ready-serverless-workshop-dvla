@@ -121,6 +121,8 @@ and go to DynamoDB console to see that the newly created stage-specific table is
 
 1. Replace the `steps/init.js` with the following
 
+**NOTE**: replace `workshop-yancui` with your service name
+
 ```javascript
 const _ = require('lodash')
 const { promisify } = require('util')
